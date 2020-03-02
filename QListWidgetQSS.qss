@@ -1,0 +1,14 @@
+QListWidget{
+        min-width: 150px;
+        max-width: 150px;
+        color: black;
+        background: #F5F5F5;
+        font-weight : 900
+    }
+     QListWidget::Item:selected {
+     background: rgb(144,144,144);
+     border-left: 12px solid red;
+ }
+     HistoryPanel:hover {
+     background: rgb(240,240,240);
+     }
