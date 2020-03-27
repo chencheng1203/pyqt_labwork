@@ -2,8 +2,8 @@
 # @Time: 2020/1/1 15:02
 
 import sys
+sys.path.append(r"D:\Code\PyQt\bupt_prj01\keyword_search")
 import pymysql
-import docx
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QRadioButton, QCheckBox, \
     QListWidget, QListWidgetItem, QTableWidget, QTableWidgetItem, QProgressBar,\
     QHBoxLayout, QVBoxLayout, QPushButton, QLineEdit, QAbstractItemView, \
@@ -13,24 +13,21 @@ from PyQt5.QtGui import QBrush, QPixmap, QPalette, QIcon, QFont
 from utils import get_current_time
 import PyQt5.QtCore as QtCore
 from keyword_Lib_dialog import KeywordLib_Dialog
-from utils import database_config_save_data, save_keyword_to_keyword_lib, show_data, save_keyword_to_keyword_lib
+from utils import database_config_save_data, save_keyword_to_keyword_lib, show_data, save_keyword_to_keyword_lib, \
+    insert_op_record, read_data_from_keyword_dic_table, file_check_record_insert, file_check_conf_return
+from keyword_search.wb import get_file_keyword_all
 from info_dialog import info_not_fill
 
 # 创建关键词库字典
-dic_path = r"D:\实验室项目相关文档\小开发\keyword_doc\keyword_dic.docx"
-d = docx.opendocx(dic_path)  # 打开数据
-doc = docx.getdocumenttext(d)
+doc = read_data_from_keyword_dic_table()
 keyword_title_dic = {}
 for i, keyword in enumerate(doc):
     keyword_title_dic["keyword" + str(i + 1)] = keyword
-
-
 # 一开始显示的内容
 ori_show_data_context = ""
 data = show_data("keyword" + str(1))
 for keyword_pair in data:
     ori_show_data_context += (keyword_pair[1] + " ")
-
 
 class MainWin(QWidget):
     def __init__(self):
@@ -52,20 +49,35 @@ class MainWin(QWidget):
         self.keyword_dialog = KeywordLib_Dialog()
         # 完善信息提示
         self.info_not_fill_dialog = info_not_fill()
+        # 设置当前用户
+        self.current_user = ""
+        # 文件检查标记等级设置
+        self.file_check_degree_select_combox = []
+        # 标识本次检索的id号
+        self.check_id = QDateTime.currentDateTime().toString('yyyy-MM-dd hh:mm:ss dddd')[:-4].\
+            replace('-', '').replace(':', '').replace(' ', '')
+        # 文件检查的对应的数据存储
+        self.file_check_fileName_saved = []
+        self.file_check_keyword_saved = []
+
+        print(self.check_id)
 
         self.initUI()  # 基本信息初始化
         self.initLayout()  # 布局初始化
 
+    def set_current_user(self, user):
+        self.current_user = user
+
     def initUI(self):
         self.setWindowTitle('数据库检查系统')   # 设置窗口名称
-        self.setWindowIcon(QIcon(r"./images/软件图标.ico"))
+        self.setWindowIcon(QIcon(r"D:\Code\PyQt\bupt_prj01\images/软件图标.ico"))
         self.resize(1200, 800)
         self.center()
         self.setFixedSize(self.width(), self.height())
 
         # 设置窗口样式
         win_palette = QPalette()  # 设置窗口样式
-        win_palette.setBrush(QPalette.Background, QBrush(QPixmap('./images/bg3.jpg')))
+        win_palette.setBrush(QPalette.Background, QBrush(QPixmap(r'D:\Code\PyQt\bupt_prj01\images/bg3.jpg')))
         self.setPalette(win_palette)
 
         # 大标题
@@ -73,7 +85,7 @@ class MainWin(QWidget):
         title_image_label = QLabel(self)
         title_label = QLabel("数据库检查系统")
         title_label.setFont(QFont('Ink Free', 22, QFont.Bold))
-        title_image_label.setPixmap(QPixmap('./images/数据库维护服务.png'))
+        title_image_label.setPixmap(QPixmap(r'D:\Code\PyQt\bupt_prj01\images/数据库维护服务.png'))
         # title_image_label.setMaximumSize(50, 50)
         self.title_layout.addStretch(1)
         self.title_layout.addWidget(title_image_label)
@@ -104,7 +116,7 @@ class MainWin(QWidget):
 
         # 左侧导航栏
         # 加载样式
-        with open('QListWidgetQSS.qss', 'r') as f:
+        with open(r'D:\Code\PyQt\bupt_prj01\QListWidgetQSS.qss', 'r') as f:
             qssStyle = f.read()
 
         self.func_menu = QListWidget()
@@ -165,20 +177,20 @@ class MainWin(QWidget):
         source_add_layout.addSpacing(300)
 
         # 文件过滤控件
-        if_open_file_filter_layout = QHBoxLayout()
-        if_open_file_filter_label = QLabel("是否启用文件过滤")
-        if_open_file_filter_label.setFont(QFont('Microsoft YaHei', 15))
-        self.if_open_file_filter_YES_choose = QRadioButton("是")
-        self.if_open_file_filter_YES_choose.setFont(QFont('Microsoft YaHei', 15))
-        self.if_open_file_filter_NO_choose = QRadioButton("否")
-        self.if_open_file_filter_NO_choose.setChecked(True)  # 默认选中
-        self.if_open_file_filter_NO_choose.setFont(QFont('Microsoft YaHei', 15))
-        if_open_file_filter_layout.addSpacing(30)  # 布局信息
-        if_open_file_filter_layout.addWidget(if_open_file_filter_label)
-        if_open_file_filter_layout.addSpacing(150)
-        if_open_file_filter_layout.addWidget(self.if_open_file_filter_YES_choose)
-        if_open_file_filter_layout.addWidget(self.if_open_file_filter_NO_choose)
-        if_open_file_filter_layout.addSpacing(160)
+        # if_open_file_filter_layout = QHBoxLayout()
+        # if_open_file_filter_label = QLabel("是否启用文件过滤")
+        # if_open_file_filter_label.setFont(QFont('Microsoft YaHei', 15))
+        # self.if_open_file_filter_YES_choose = QRadioButton("是")
+        # self.if_open_file_filter_YES_choose.setFont(QFont('Microsoft YaHei', 15))
+        # self.if_open_file_filter_NO_choose = QRadioButton("否")
+        # self.if_open_file_filter_NO_choose.setChecked(True)  # 默认选中
+        # self.if_open_file_filter_NO_choose.setFont(QFont('Microsoft YaHei', 15))
+        # if_open_file_filter_layout.addSpacing(30)  # 布局信息
+        # if_open_file_filter_layout.addWidget(if_open_file_filter_label)
+        # if_open_file_filter_layout.addSpacing(150)
+        # if_open_file_filter_layout.addWidget(self.if_open_file_filter_YES_choose)
+        # if_open_file_filter_layout.addWidget(self.if_open_file_filter_NO_choose)
+        # if_open_file_filter_layout.addSpacing(160)
 
         # 是否添加审查人和被审查单位
         if_add_checker_checked_layout = QHBoxLayout()
@@ -251,7 +263,7 @@ class MainWin(QWidget):
         stack_task_config_w7 = QWidget()
 
         stack_task_config_w1.setLayout(source_add_layout)
-        stack_task_config_w2.setLayout(if_open_file_filter_layout)
+        # stack_task_config_w2.setLayout(if_open_file_filter_layout)
         stack_task_config_w3.setLayout(if_add_checker_checked_layout)
         stack_task_config_w4.setLayout(checker_layout)
         stack_task_config_w5.setLayout(checked_layout)
@@ -260,7 +272,7 @@ class MainWin(QWidget):
 
         stack_task_config_layout = QVBoxLayout()
         stack_task_config_layout.addWidget(stack_task_config_w1)
-        stack_task_config_layout.addWidget(stack_task_config_w2)
+        # stack_task_config_layout.addWidget(stack_task_config_w2)
         stack_task_config_layout.addWidget(stack_task_config_w3)
         stack_task_config_layout.addWidget(stack_task_config_w4)
         stack_task_config_layout.addWidget(stack_task_config_w5)
@@ -290,6 +302,8 @@ class MainWin(QWidget):
                 checked_company.strip() != "" and \
                 self.if_add_checker_checked_YES_choose.isChecked():
             database_config_save_data(check_person, checked_company)
+        else:
+            insert_op_record(self.current_user, "任务配置")
 
     # 关键词配置页面
     def stack_keyword_UI(self):
@@ -466,17 +480,19 @@ class MainWin(QWidget):
     # 保存配置
     def keyword_save_btn_handle(self):
         if self.old_keyword_package_NO_choose.isChecked():  # 不启用关键词库
-            self.keyword_returned_tofind = ""
             self.keyword_returned_tofind = str(self.input_keyword_edit.text())
+            insert_op_record(self.current_user, "关键词配置-不启用关键词库")
         else:
             self.keyword_returned_tofind = ""
             data = show_data("keyword" + str(self.choose_keyword_lib_index))
             for keyword_pair in data:
                 self.keyword_returned_tofind += (keyword_pair[1] + " ")
-            print(self.keyword_returned_tofind)
+            insert_op_record(self.current_user, "选择关键词库-" + keyword_title_dic["keyword" + str(self.choose_keyword_lib_index)])
+        print(self.keyword_returned_tofind)
         if self.if_add_to_keyword_package_YES_choose.isChecked():  # 保存到关键词库
             keyword = "keyword" + str(self.choose_which_keyword_lib_to_saved_index)
             save_keyword_to_keyword_lib(str(self.input_keyword_edit.text()), keyword)
+            insert_op_record(self.current_user, "添加关键词")
 
     # 数据库发现页面
     def stack_db_search_UI(self):
@@ -571,6 +587,7 @@ class MainWin(QWidget):
     数据库发现槽函数
     """
     def stack_db_search_db_choose_finished_btn_handle(self):
+        insert_op_record(self.current_user, "数据库发现")
         self.Stack.setCurrentIndex(3)
 
 
@@ -597,6 +614,7 @@ class MainWin(QWidget):
         file_check_start_check_layout = QHBoxLayout()
         file_check_start_check_layout.setContentsMargins(5, 5, 5, 5)
         self.file_check_start_check_btn = QPushButton("开始检查")
+        self.file_check_start_check_btn.clicked.connect(self.file_check_start_check_btn_handle)
         self.file_check_start_check_btn.setFont(QFont('Microsoft YaHei', 15))
         self.file_check_start_check_btn.setFixedHeight(60)
         file_check_start_check_layout.addWidget(self.file_check_start_check_btn)
@@ -614,13 +632,13 @@ class MainWin(QWidget):
         file_check_check_result_table_layout = QHBoxLayout()
         file_check_check_result_table_layout.setContentsMargins(5, 5, 5, 5)
         self.file_check_check_result_table = QTableWidget()
-        self.file_check_check_result_table.setRowCount(100)  # 设置行数
+        # self.file_check_check_result_table.setRowCount(100)  # 设置行数
         self.file_check_check_result_table.setColumnCount(5)  # 设置列数
         self.file_check_check_result_table.setHorizontalHeaderLabels(["IP端口", "文件名", "检查出的关键字", "置信度等级", "选择涉密等级"])  # 设置表头
         self.file_check_check_result_table.setColumnWidth(0, 100)  # 设置列宽
-        self.file_check_check_result_table.setColumnWidth(1, 200)
+        self.file_check_check_result_table.setColumnWidth(1, 260)
         self.file_check_check_result_table.setColumnWidth(2, 200)
-        self.file_check_check_result_table.setColumnWidth(3, 200)
+        self.file_check_check_result_table.setColumnWidth(3, 100)
         self.file_check_check_result_table.setColumnWidth(4, 200)
         self.file_check_check_result_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         file_check_check_result_table_layout.addWidget(self.file_check_check_result_table)
@@ -631,7 +649,7 @@ class MainWin(QWidget):
         file_check_check_display_label = QLabel("检查进度")
         file_check_check_display_label.setFont(QFont('Microsoft YaHei', 15))
         self.file_check_check_pbar = QProgressBar()
-        self.file_check_check_pbar.setValue(50)
+        self.file_check_check_pbar.setValue(0)
         self.file_check_check_pbar.setFixedHeight(30)
         file_check_check_pbar_layout.addWidget(file_check_check_display_label)
         file_check_check_pbar_layout.addWidget(self.file_check_check_pbar)
@@ -651,6 +669,7 @@ class MainWin(QWidget):
         file_check_finished_layout = QHBoxLayout()
         file_check_finished_layout.setContentsMargins(5, 5, 5, 5)
         self.file_check_finished_btn = QPushButton("保存标记结果")
+        self.file_check_finished_btn.clicked.connect(self.file_check_finished_btn_handle)
         self.file_check_finished_btn.setFont(QFont('Microsoft YaHei', 15))
         self.file_check_finished_btn.setFixedHeight(40)
 
@@ -695,6 +714,66 @@ class MainWin(QWidget):
 
         self.stack_file_check.setLayout(stack_file_check_layout)
 
+    # 向文件检查表格中插入数据
+    # 表格增加一行数据
+    def file_check_add_line(self, ip="127.0.0.1", file_name="", keyword="", conf_class="3", sect_class="2"):
+        row = self.file_check_check_result_table.rowCount()
+
+        combox = QComboBox()
+        combox.setFixedHeight(20)
+        # combox.setFixedWidth(50)
+        combox.addItems(["可疑", "秘密", "机密", "绝密"])
+        h = QHBoxLayout()
+        h.setAlignment(Qt.AlignCenter)
+        h.addWidget(combox)
+        w = QWidget()
+        w.setLayout(h)
+
+        self.file_check_check_result_table.setRowCount(row + 1)
+        self.file_check_check_result_table.setItem(row, 0, QTableWidgetItem(ip))
+        self.file_check_check_result_table.setItem(row, 1, QTableWidgetItem(file_name))
+        self.file_check_check_result_table.setItem(row, 2, QTableWidgetItem(keyword))
+        self.file_check_check_result_table.setItem(row, 3, QTableWidgetItem(conf_class))
+        self.file_check_check_result_table.setCellWidget(row, 4, w)
+        self.file_check_degree_select_combox.append(combox)
+        # self.file_check_check_result_table.setItem(row, 4, QTableWidgetItem(sect_class))
+
+    # 增加多行数据
+    def file_check_add_data_to_table(self):
+        self.file_check_check_result_table.setRowCount(0)  # 清空数据
+        datas = get_file_keyword_all(keyword=self.keyword_returned_tofind, number=4)
+        keyword_datas = datas[0]
+        # print(keyword_datas)
+        # 保存文件名和关键字，清空数据
+        self.file_check_fileName_saved = []
+        self.file_check_keyword_saved = []
+        count_datas = datas[1]
+        count = 0
+        conf_data = str(file_check_conf_return(self.keyword_returned_tofind))
+        for key_data in keyword_datas.keys():
+            for values in keyword_datas[key_data]:
+                count += 1
+                self.file_check_check_pbar.setValue((count / count_datas * 100))
+                self.file_check_add_line(file_name=str(key_data), conf_class=conf_data, keyword=str(values))
+                self.file_check_fileName_saved.append(str(key_data))
+                self.file_check_keyword_saved.append(str(values))
+
+    # 处理函数
+    def file_check_start_check_btn_handle(self):
+        self.file_check_check_pbar.setValue(10)
+        insert_op_record(self.current_user, "文件检查")
+        self.file_check_add_data_to_table()
+
+    # 保存标记结果
+    def file_check_finished_btn_handle(self):
+        for i, check_id in enumerate(self.file_check_degree_select_combox):
+            degree_selected = check_id.currentIndex()
+            file_check_fileName = self.file_check_fileName_saved[i]
+            file_check_keyword = self.file_check_keyword_saved[i]
+            # print(degree_selected, file_check_fileName, file_check_keyword)
+            file_check_record_insert(self.check_id, "127.0.0.1", file_check_fileName, self.keyword_returned_tofind, file_check_keyword, str(degree_selected))
+
+
     # 邮件检查页面
     def stack_email_check_UI(self):
         # 用户名及密码
@@ -735,6 +814,7 @@ class MainWin(QWidget):
         email_check_start_check_layout = QHBoxLayout()
         email_check_start_check_layout.setContentsMargins(5, 5, 5, 5)
         self.email_check_start_check_btn = QPushButton("开始检查")
+        self.email_check_start_check_btn.clicked.connect(self.email_check_start_check_btn_handle)
         self.email_check_start_check_btn.setFont(QFont('Microsoft YaHei', 15))
         self.email_check_start_check_btn.setFixedHeight(60)
         email_check_start_check_layout.addWidget(self.email_check_start_check_btn)
@@ -832,6 +912,10 @@ class MainWin(QWidget):
         stack_email_check_layout.addWidget(stack_email_check_w8)
         self.stack_email_check.setLayout(stack_email_check_layout)
 
+    # 处理函数
+    def email_check_start_check_btn_handle(self):
+        insert_op_record(self.current_user, "邮件检查")
+
     # 图片检查页面
     def stack_pic_check_UI(self):
         # 图片检查类型标签
@@ -843,18 +927,19 @@ class MainWin(QWidget):
         self.pic_check_type_checkBox_jpg.setFont(QFont('Microsoft YaHei', 12))
         self.pic_check_type_checkBox_png = QCheckBox(".PNG")
         self.pic_check_type_checkBox_png.setFont(QFont('Microsoft YaHei', 12))
-        self.pic_check_type_checkBox_all = QCheckBox("全部类型")
-        self.pic_check_type_checkBox_all.setFont(QFont('Microsoft YaHei', 12))
+        # self.pic_check_type_checkBox_all = QCheckBox("全部类型")
+        # self.pic_check_type_checkBox_all.setFont(QFont('Microsoft YaHei', 12))
         pic_check_type_layout.addWidget(pic_check_type_label)
         pic_check_type_layout.addWidget(self.pic_check_type_checkBox_jpg)
         pic_check_type_layout.addWidget(self.pic_check_type_checkBox_png)
-        pic_check_type_layout.addWidget(self.pic_check_type_checkBox_all)
+        # pic_check_type_layout.addWidget(self.pic_check_type_checkBox_all)
 
 
         # 图片检查-开始检查
         pic_check_start_check_layout = QHBoxLayout()
         pic_check_start_check_layout.setContentsMargins(5, 5, 5, 5)
         self.pic_check_start_check_btn = QPushButton("开始检查")
+        self.pic_check_start_check_btn.clicked.connect(self.pic_check_start_check_btn_handle)
         self.pic_check_start_check_btn.setFont(QFont('Microsoft YaHei', 15))
         self.pic_check_start_check_btn.setFixedHeight(60)
         pic_check_start_check_layout.addWidget(self.pic_check_start_check_btn)
@@ -950,12 +1035,17 @@ class MainWin(QWidget):
 
         self.stack_pic_check.setLayout(stack_pic_check_layout)
 
+    # 处理函数
+    def pic_check_start_check_btn_handle(self):
+        insert_op_record(self.current_user, "图片检查")
+
     # 数据库日志检查页面
     def stack_db_log_check_UI(self):
         # 开始检查按钮
         db_log_check_start_check_layout = QHBoxLayout()
         db_log_check_start_check_layout.setContentsMargins(5, 5, 5, 5)
         self.db_log_check_start_check_btn = QPushButton("开始检查")
+        self.db_log_check_start_check_btn.clicked.connect(self.db_log_check_start_check_btn_handle)
         self.db_log_check_start_check_btn.setFont(QFont('Microsoft YaHei', 15))
         self.db_log_check_start_check_btn.setFixedHeight(60)
         db_log_check_start_check_layout.addWidget(self.db_log_check_start_check_btn)
@@ -1026,12 +1116,17 @@ class MainWin(QWidget):
 
         self.stack_db_log_check.setLayout(stack_db_log_check_layout)
 
+    # 处理函数
+    def db_log_check_start_check_btn_handle(self):
+        insert_op_record(self.current_user, "数据库日志检查")
+
     # 数据库安全扫描页面
     def stack_security_scan_UI(self):
         # 开始检查按钮
         security_scan_start_check_layout = QHBoxLayout()
         security_scan_start_check_layout.setContentsMargins(5, 5, 5, 5)
         self.security_scan_start_check_btn = QPushButton("开始检查")
+        self.security_scan_start_check_btn.clicked.connect(self.security_scan_start_check_btn_handle)
         self.security_scan_start_check_btn.setFont(QFont('Microsoft YaHei', 15))
         self.security_scan_start_check_btn.setFixedHeight(60)
         security_scan_start_check_layout.addWidget(self.security_scan_start_check_btn)
@@ -1045,7 +1140,7 @@ class MainWin(QWidget):
         security_scan_result_layout.addWidget(security_scan_result_layout_result_label)
         security_scan_result_layout.addStretch(1)
 
-        # 邮件检查-检查结果表格
+        # 检查结果表格
         security_scan_result_table_layout = QHBoxLayout()
         security_scan_result_table_layout.setContentsMargins(5, 5, 5, 5)
         self.security_scan_result_table = QTableWidget()
@@ -1102,6 +1197,10 @@ class MainWin(QWidget):
 
         self.stack_security_scan.setLayout(stack_stack_security_check_layout)
 
+    # 处理函数
+    def security_scan_start_check_btn_handle(self):
+        insert_op_record(self.current_user, "数据库安全扫描")
+
     # 二次检索页面
     def stack_second_check_UI(self):
         # 二次检索-按照涉密等级划分
@@ -1150,6 +1249,7 @@ class MainWin(QWidget):
         second_check_start_check_layout = QHBoxLayout()
         second_check_start_check_layout.setContentsMargins(5, 5, 5, 5)
         self.second_check_start_check_btn = QPushButton("开始检查")
+        self.second_check_start_check_btn.clicked.connect(self.second_check_start_check_btn_handle)
         self.second_check_start_check_btn.setFont(QFont('Microsoft YaHei', 15))
         self.second_check_start_check_btn.setFixedHeight(40)
         second_check_start_check_layout.addWidget(self.second_check_start_check_btn)
@@ -1228,6 +1328,10 @@ class MainWin(QWidget):
         stack_second_check_check_layout.addWidget(stack_second_check_check_w8)
 
         self.stack_second_check.setLayout(stack_second_check_check_layout)
+
+    # 处理函数
+    def second_check_start_check_btn_handle(self):
+        insert_op_record(self.current_user, "二次检索")
 
     # 检查结果页面
     def stack_result_UI(self):
