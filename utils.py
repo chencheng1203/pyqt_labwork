@@ -1,6 +1,9 @@
 # -*- encoding:utf-8 -*-
 # @Time: 2020/1/7 9:40
 import pymysql
+import arrow
+import docx
+import datetime
 
 
 # 获取当前时间
@@ -31,7 +34,6 @@ def insert_user(username, pw):
     conn.close()
     return 1
 
-
 # 遍历用户数据库
 def search_all_user_account():
     conn = pymysql.connect(
@@ -46,7 +48,6 @@ def search_all_user_account():
     cursor.close()
     conn.close()
     return data
-
 
 # 查找用户是否存在
 def search_user(username, pd):
@@ -136,8 +137,146 @@ def display_user_account():
     data = cursor.fetchall()
     conn.commit()
     conn.close()
-    return data;
+    return data
 
+# 插入记录数据
+def insert_op_record(user, op_type):
+    conn = pymysql.connect(
+        host="127.0.0.1",
+        user="root", password="cc120323",
+        database="info_manager_sys",
+        charset="utf8")
+    cursor = conn.cursor()
+    sql = "insert into op_record (user, op_type) values('{}', '{}');".format(user, op_type)
+    cursor.execute(sql)
+    conn.commit()
+    conn.close()
+
+# 获取操作记录数据库数据
+def get_op_record_all():
+    conn = pymysql.connect(
+        host="127.0.0.1",
+        user="root", password="cc120323",
+        database="info_manager_sys",
+        charset="utf8")
+    cursor = conn.cursor()
+    sql = "select * from op_record;"
+    cursor.execute(sql)
+    data = cursor.fetchall()
+    conn.commit()
+    conn.close()
+    return data
+
+def get_op_record_time(beg, end):
+    conn = pymysql.connect(
+        host="127.0.0.1",
+        user="root", password="cc120323",
+        database="info_manager_sys",
+        charset="utf8")
+    cursor = conn.cursor()
+    sql = "select * from op_record where date(time) between '{}' and '{}';".format(beg, end)
+    cursor.execute(sql)
+    data = cursor.fetchall()
+    conn.commit()
+    conn.close()
+    return data
+
+
+# 获取前 n 个月的时间
+def get_n_month_time(n_month):
+    dt = arrow.now()
+    ttime = dt.shift(months=-n_month).format("YYYY-MM-DD HH:MM:SS")
+    return ttime
+
+
+# 删除前 n 个月的操作数据
+def remove_n_month_data(n_month):
+    conn = pymysql.connect(
+        host="127.0.0.1",
+        user="root", password="cc120323",
+        database="info_manager_sys",
+        charset="utf8")
+    cursor = conn.cursor()
+    month_time = get_n_month_time(n_month)
+    if int(month_time[-2:]) >= 60:
+        new_month_time = month_time[:-2] + "00"
+    else:
+        new_month_time = month_time
+    sql = "delete from op_record where time<'{}';".format(new_month_time)
+    cursor.execute(sql)
+    conn.commit()
+    conn.close()
+
+
+# 将71个关键词标题插入表单
+def insert_data2keyword_dic_table():
+    conn = pymysql.connect(
+        host="127.0.0.1",
+        user="root", password="cc120323",
+        database="info_manager_sys",
+        charset="utf8")
+    cursor = conn.cursor()
+    dic_path = r"D:\实验室项目相关文档\小开发\keyword_doc\keyword_dic.docx"
+    d = docx.opendocx(dic_path)  # 打开数据
+    doc = docx.getdocumenttext(d)
+    for word in doc:
+        sql = "insert into keyword_dic_table (keyword) values('{}');".format(word)
+        cursor.execute(sql)
+        conn.commit()
+    conn.close()
+    print("insert_data2keyword_dic_table done")
+
+
+# 将71个关键词从表单中读取出来
+def read_data_from_keyword_dic_table():
+    conn = pymysql.connect(
+        host="127.0.0.1",
+        user="root", password="cc120323",
+        database="info_manager_sys",
+        charset="utf8")
+    cursor = conn.cursor()
+    sql = "select * from keyword_dic_table;"
+    cursor.execute(sql)
+    data_return = cursor.fetchall()
+    data = []
+    for i in data_return:
+        for j in i:
+            data.append(j)
+    conn.commit()
+    conn.close()
+    return data
+
+
+# 插入文件检查检查记录
+def file_check_record_insert(check_id, ip, file_name, keyword_input, keyword, degree_selected):
+    conn = pymysql.connect(
+        host="127.0.0.1",
+        user="root", password="cc120323",
+        database="info_manager_sys",
+        charset="utf8")
+    cursor = conn.cursor()
+    sql = "insert into file_check_record (check_id, ip, file_name, keyword_input, keyword, degree_selected) values('{}', '{}', '{}', '{}', '{}', '{}');"\
+        .format(check_id, ip, file_name, keyword_input, keyword, degree_selected)
+    cursor.execute(sql)
+    conn.commit()
+    conn.close()
+
+
+# 返回文件检查置信度
+def file_check_conf_return(keyword):
+    conn = pymysql.connect(
+        host="127.0.0.1",
+        user="root", password="cc120323",
+        database="info_manager_sys",
+        charset="utf8")
+    cursor = conn.cursor()
+    sql = "select COUNT(*) from file_check_record where keyword_input='{}'".format(keyword)
+    cursor.execute(sql)
+    conn.commit()
+    data = cursor.fetchall()
+    conn.close()
+    return data[0][0]
 
 if __name__ == "__main__":
-    print(display_user_account())
+    data = read_data_from_keyword_dic_table()
+    print(data)

@@ -15,7 +15,7 @@ class info_not_fill(QWidget):
 
     def initUI(self):
         self.setWindowTitle('提示')   # 设置窗口名称
-        self.setWindowIcon(QIcon(r"./images/软件图标.ico"))
+        self.setWindowIcon(QIcon(r"D:\Code\PyQt\bupt_prj01\images/软件图标.ico"))
         self.resize(200, 100)
         self.center()
         self.setFixedSize(self.width(), self.height())
@@ -50,7 +50,7 @@ class user_already_exist(QWidget):
 
     def initUI(self):
         self.setWindowTitle('提示')   # 设置窗口名称
-        self.setWindowIcon(QIcon(r"./images/软件图标.ico"))
+        self.setWindowIcon(QIcon(r"D:\Code\PyQt\bupt_prj01\images/软件图标.ico"))
         self.resize(200, 100)
         self.center()
         self.setFixedSize(self.width(), self.height())
