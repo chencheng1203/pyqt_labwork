@@ -10,21 +10,18 @@ import pymysql
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QRadioButton, QCheckBox, \
     QListWidget, QListWidgetItem, QTableWidget, QTableWidgetItem, QProgressBar,\
     QHBoxLayout, QVBoxLayout, QPushButton, QLineEdit, QAbstractItemView, \
-    QDesktopWidget, QStackedWidget, QComboBox, QHeaderView
+    QDesktopWidget, QStackedWidget, QComboBox, QHeaderView, QCalendarWidget
 from PyQt5.QtCore import *
 from PyQt5.QtGui import QBrush, QPixmap, QPalette, QIcon, QFont
 from info_dialog import user_already_exist
 from utils import database_config_save_data, save_keyword_to_keyword_lib, show_data, save_keyword_to_keyword_lib,\
-    display_user_account
+    display_user_account, get_op_record_all, get_op_record_time, remove_n_month_data, read_data_from_keyword_dic_table
 
 # 创建关键词库字典
-dic_path = r"D:\实验室项目相关文档\小开发\keyword_doc\keyword_dic.docx"
-d = docx.opendocx(dic_path)  # 打开数据
-doc = docx.getdocumenttext(d)
+doc = read_data_from_keyword_dic_table()
 keyword_title_dic = {}
 for i, keyword in enumerate(doc):
     keyword_title_dic["keyword" + str(i + 1)] = keyword
-
 
 # 一开始显示的内容
 ori_show_data_context = ""
@@ -53,14 +50,14 @@ class Checker_Win(QWidget):
 
     def initUI(self):
         self.setWindowTitle('数据库检查系统')   # 设置窗口名称
-        self.setWindowIcon(QIcon(r"./images/软件图标.ico"))
+        self.setWindowIcon(QIcon(r"D:\Code\PyQt\bupt_prj01\images/软件图标.ico"))
         self.resize(1200, 800)
         self.center()
         self.setFixedSize(self.width(), self.height())
 
         # 设置窗口样式
         win_palette = QPalette()  # 设置窗口样式
-        win_palette.setBrush(QPalette.Background, QBrush(QPixmap('./images/bg3.jpg')))
+        win_palette.setBrush(QPalette.Background, QBrush(QPixmap(r'D:\Code\PyQt\bupt_prj01\images/bg3.jpg')))
         self.setPalette(win_palette)
 
         # 大标题
@@ -68,7 +65,7 @@ class Checker_Win(QWidget):
         title_image_label = QLabel(self)
         title_label = QLabel("数据库检查系统")
         title_label.setFont(QFont('Ink Free', 22, QFont.Bold))
-        title_image_label.setPixmap(QPixmap('./images/数据库维护服务.png'))
+        title_image_label.setPixmap(QPixmap(r'D:\Code\PyQt\bupt_prj01\images\数据库维护服务.png'))
         # title_image_label.setMaximumSize(50, 50)
         self.title_layout.addStretch(1)
         self.title_layout.addWidget(title_image_label)
@@ -99,7 +96,7 @@ class Checker_Win(QWidget):
 
         # 左侧导航栏
         # 加载样式
-        with open('QListWidgetQSS.qss', 'r') as f:
+        with open(r'D:\Code\PyQt\bupt_prj01\QListWidgetQSS.qss', 'r') as f:
             qssStyle = f.read()
 
         self.func_menu = QListWidget()
@@ -312,303 +309,269 @@ class Checker_Win(QWidget):
         # 更新显示
         self.add_data_to_table()
 
-    """
-    任务配置槽函数
-    """
-    # 下一步
-    def stack_task_config_next_btn_handle(self):
-        # self.func_menu.
-        if str(self.source_add_edit.text()).strip() != "" \
-                and str(self.checker_edit.text()).strip() != "" and \
-                str(self.checked_edit.text()).strip() != "":
-            self.Stack.setCurrentIndex(1)
-        else:
-            self.info_not_fill_dialog.show()
 
-    # 保存配置
-    def task_config_saved_btn_handle(self):
-        check_person = str(self.checker_edit.text())
-        checked_company = str(self.checked_edit.text())
-        if check_person.strip() != "" and \
-                checked_company.strip() != "" and \
-                self.if_add_checker_checked_YES_choose.isChecked():
-            database_config_save_data(check_person, checked_company)
-
-    # 关键词配置页面
+    # 审计管理
     def stack_shenjin_manager_UI(self):
-        # 定义返回的查找的关键词
-        self.keyword_returned_tofind = ""
-        self.choose_keyword_lib_index = 0  # 初始化下标
-        self.choose_which_keyword_lib_to_saved_index = 0
-        # 关键词库列表
-        choose_keyword_lib_comboxdata_items = []
-        for keyword_content in keyword_title_dic.values():
-            choose_keyword_lib_comboxdata_items.append(keyword_content)
+        # 查询类别
+        search_method_layout = QHBoxLayout()
+        search_method_layout.setContentsMargins(5, 5, 5, 5)
+        search_method_label = QLabel("查询类别")
+        search_method_label.setFont(QFont('Microsoft YaHei', 15))
+        self.quanbu_choose = QRadioButton("全部")
+        self.quanbu_choose.setChecked(True)
+        self.quanbu_choose.toggled.connect(self.quanbu_choose_handle)
+        self.quanbu_choose.setFont(QFont('Microsoft YaHei', 15))
+        self.shijian_choose = QRadioButton("按时间")
+        self.shijian_choose.toggled.connect(self.shijian_choose_handle)
+        self.shijian_choose.setFont(QFont('Microsoft YaHei', 15))
+        search_method_layout.addSpacing(80)
+        search_method_layout.addWidget(search_method_label)
+        search_method_layout.addSpacing(100)
+        search_method_layout.addWidget(self.quanbu_choose)
+        search_method_layout.addWidget(self.shijian_choose)
+        search_method_layout.addSpacing(150)
 
-        # 是否启用原有关键词库
-        if_old_keyword_package_layout = QHBoxLayout()
-        old_keyword_package_label = QLabel("是否启用原有关键词库")
-        old_keyword_package_label.setFont(QFont('Microsoft YaHei', 15))
-        self.old_keyword_package_YES_choose = QRadioButton("是")
-        self.old_keyword_package_YES_choose.setFont(QFont('Microsoft YaHei', 15))
-        self.old_keyword_package_NO_choose = QRadioButton("否")
-        self.old_keyword_package_NO_choose.setChecked(True)  # 默认不用关键词库
-        self.old_keyword_package_NO_choose.setFont(QFont('Microsoft YaHei', 15))
-        if_old_keyword_package_layout.addSpacing(30)
-        if_old_keyword_package_layout.addWidget(old_keyword_package_label)
-        if_old_keyword_package_layout.addSpacing(200)
-        if_old_keyword_package_layout.addWidget(self.old_keyword_package_YES_choose)
-        if_old_keyword_package_layout.addWidget(self.old_keyword_package_NO_choose)
-        if_old_keyword_package_layout.addSpacing(150)
+        # 按照分类
+        # search_on_class_layout = QHBoxLayout()
+        # search_on_class_layout.setContentsMargins(5, 5, 5, 5)
+        # search_on_class_label = QLabel('按照分类')
+        # search_on_class_label.setFont(QFont('Microsoft YaHei', 15))
+        # self.search_on_class_combox = QComboBox()
+        # self.search_on_class_combox.currentIndexChanged.connect(self.search_on_class_index)
+        # self.search_on_class_combox.addItems(["文件", "图片", "邮件"])
+        # self.search_on_class_combox.setFixedHeight(40)
+        # self.search_on_class_combox.setFixedWidth(450)
+        # search_on_class_layout.addSpacing(80)
+        # search_on_class_layout.addWidget(search_on_class_label)
+        # search_on_class_layout.addSpacing(50)
+        # search_on_class_layout.addWidget(self.search_on_class_combox)
+        # search_on_class_layout.addSpacing(170)
 
-        # 选择关键词库
-        choose_keyword_package_layout = QHBoxLayout()
-        choose_keyword_package_label = QLabel("选择关键词库")
-        choose_keyword_package_label.setFont(QFont('Microsoft YaHei', 15))
-        self.choose_keyword_package_combox = QComboBox()
-        self.choose_keyword_package_combox.currentIndexChanged.connect(self.choose_keyword_package_index)
-        self.choose_keyword_package_combox.setFixedHeight(40)
-        self.choose_keyword_package_combox.setFixedWidth(500)
-        self.choose_keyword_package_combox.addItems(choose_keyword_lib_comboxdata_items)
-        self.keyword_package_label = QPushButton('关键词库')
-        self.keyword_package_label.clicked.connect(self.click_keyword_lib_jump)  # 函数跳转
-        self.keyword_package_label.setProperty('name', 'keyword_package_label')
-        keyword_package_label_btn_qss = '''QPushButton[name='keyword_package_label']{background-color:rgb(255,0,0)}'''
-        self.keyword_package_label.setStyleSheet(keyword_package_label_btn_qss)
-        self.keyword_package_label.setFixedHeight(40)
-        self.keyword_package_label.setFixedWidth(100)
-        choose_keyword_package_layout.addSpacing(80)
-        choose_keyword_package_layout.addWidget(choose_keyword_package_label)
-        choose_keyword_package_layout.addSpacing(80)
-        choose_keyword_package_layout.addWidget(self.choose_keyword_package_combox)
-        choose_keyword_package_layout.addWidget(self.keyword_package_label)
+        # 按照时间查询
+        self.beg_cal = QCalendarWidget()
+        self.beg_cal.clicked[QDate].connect(self.beg_cal_set)
+        self.beg_cal.setGridVisible(True)
+        self.end_cal = QCalendarWidget()
+        self.end_cal.clicked[QDate].connect(self.end_cal_set)
+        self.end_cal.setGridVisible(True)
+        self.beg_cal.hide()
+        self.end_cal.hide()
 
-        # 关键词白名单
-        keyword_blank_list_layout = QHBoxLayout()
-        keyword_blank_list_label = QLabel("关键词白名单")
-        keyword_blank_list_label.setFont(QFont('Microsoft YaHei', 15))
-        self.keyword_blank_list_edit = QLineEdit()
-        self.keyword_blank_list_edit.setFixedHeight(40)
-        self.keyword_blank_list_edit.setFixedWidth(500)
-        keyword_blank_list_layout.addSpacing(80)
-        keyword_blank_list_layout.addWidget(keyword_blank_list_label)
-        keyword_blank_list_layout.addWidget(self.keyword_blank_list_edit)
-        keyword_blank_list_layout.addSpacing(105)
+        search_on_time_layout = QHBoxLayout()
+        search_on_time_layout.setContentsMargins(5, 5, 5, 5)
+        search_on_time_label = QLabel('按照时间')
+        search_on_time_label.setFont(QFont('Microsoft YaHei', 15))
+        self.search_on_time_beg_btn = QPushButton("选择开始时间")
+        self.search_on_time_beg_btn.setFixedWidth(100)
+        self.search_on_time_beg_btn.clicked.connect(self.search_on_time_beg_btn_handle)
+        self.search_on_time_end_btn = QPushButton("选择结束时间")
+        self.search_on_time_end_btn.setFixedWidth(100)
+        self.search_on_time_end_btn.clicked.connect(self.search_on_time_end_btn_handle)
+        search_on_time_layout.addSpacing(80)
+        search_on_time_layout.addWidget(search_on_time_label)
+        search_on_time_layout.addWidget(self.search_on_time_beg_btn)
+        search_on_time_layout.addSpacing(100)
+        search_on_time_layout.addWidget(self.search_on_time_end_btn)
+        search_on_time_layout.addSpacing(260)
 
-        # 关键词搜索
-        input_keyword_layout = QHBoxLayout()
-        input_keyword_label = QLabel('输入关键词')
-        input_keyword_label.setFont(QFont('Microsoft YaHei', 15))
-        self.input_keyword_edit = QLineEdit()
-        self.input_keyword_edit.setFixedHeight(40)
-        self.input_keyword_edit.setFixedWidth(500)
-        input_keyword_layout.addSpacing(80)
-        input_keyword_layout.addWidget(input_keyword_label)
-        input_keyword_layout.addWidget(self.input_keyword_edit)
-        input_keyword_layout.addSpacing(105)
+        # 按照关键词
+        # search_on_keyword_layout = QHBoxLayout()
+        # search_on_keyword_layout.setContentsMargins(5, 5, 5, 5)
+        # search_on_keyword_label = QLabel('输入关键词')
+        # search_on_keyword_label.setFont(QFont('Microsoft YaHei', 15))
+        # self.search_on_keyword_edit = QLineEdit()
+        # self.search_on_keyword_edit.setFixedHeight(40)
+        # self.search_on_keyword_edit.setFixedWidth(450)
+        # search_on_keyword_layout.addSpacing(80)
+        # search_on_keyword_layout.addWidget(search_on_keyword_label)
+        # search_on_keyword_layout.addWidget(self.search_on_keyword_edit)
+        # search_on_keyword_layout.addSpacing(170)
 
-        # 是否将关键词添加到词库
-        if_add_to_keyword_package_layout = QHBoxLayout()
-        if_add_to_keyword_package_label = QLabel("关键词是否添加到词库")
-        if_add_to_keyword_package_label.setFont(QFont('Microsoft YaHei', 15))
-        self.if_add_to_keyword_package_YES_choose = QRadioButton("是")
-        self.if_add_to_keyword_package_YES_choose.setFont(QFont('Microsoft YaHei', 15))
-        self.if_add_to_keyword_package_NO_choose = QRadioButton("否")
-        self.if_add_to_keyword_package_NO_choose.setChecked(True)  # 默认不用关键词库
-        self.if_add_to_keyword_package_NO_choose.setFont(QFont('Microsoft YaHei', 15))
-        if_add_to_keyword_package_layout.addSpacing(30)
-        if_add_to_keyword_package_layout.addWidget(if_add_to_keyword_package_label)
-        if_add_to_keyword_package_layout.addSpacing(200)
-        if_add_to_keyword_package_layout.addWidget(self.if_add_to_keyword_package_YES_choose)
-        if_add_to_keyword_package_layout.addWidget(self.if_add_to_keyword_package_NO_choose)
-        if_add_to_keyword_package_layout.addSpacing(150)
+        # 开始查询按钮
+        rizhi_start_search_btn_layout = QHBoxLayout()
+        # start_search_btn_layout.setContentsMargins(5, 5, 5, 5)
+        self.rizhi_start_search_btn = QPushButton('开始查询')
+        self.rizhi_start_search_btn.clicked.connect(self.add_data_to_op_table)
+        self.rizhi_start_search_btn.setFont(QFont('Microsoft YaHei', 15))
+        self.rizhi_start_search_btn.setFixedHeight(50)
+        rizhi_start_search_btn_layout.addWidget(self.rizhi_start_search_btn)
 
-        # 选择要保存的关键词库
-        choose_which_keyword_package_to_saved_layout = QHBoxLayout()
-        choose_which_keyword_package_to_saved_label = QLabel('选择要保存的关键词库')
-        choose_which_keyword_package_to_saved_label.setFont(QFont('Microsoft YaHei', 15))
-        self.choose_which_keyword_package_to_saved_combox = QComboBox()
-        self.choose_which_keyword_package_to_saved_combox.currentIndexChanged.connect(self.choose_which_keyword_package_to_saved_index)
-        self.choose_which_keyword_package_to_saved_combox.addItems(choose_keyword_lib_comboxdata_items)
+        # 查询结果
+        search_result_lable_layout = QHBoxLayout()
+        search_result_lable_layout.setContentsMargins(5, 5, 5, 5)
+        self.search_result_lable = QLabel('查询结果')
+        self.search_result_lable.setFont(QFont('Microsoft YaHei', 15))
+        search_result_lable_layout.addStretch(1)
+        search_result_lable_layout.addWidget(self.search_result_lable)
+        search_result_lable_layout.addStretch(1)
 
-        self.choose_which_keyword_package_to_saved_combox.setFixedHeight(40)
-        self.choose_which_keyword_package_to_saved_combox.setFixedWidth(500)
-        choose_which_keyword_package_to_saved_layout.addSpacing(30)
-        choose_which_keyword_package_to_saved_layout.addWidget(choose_which_keyword_package_to_saved_label)
-        choose_which_keyword_package_to_saved_layout.addSpacing(50)
-        choose_which_keyword_package_to_saved_layout.addWidget(self.choose_which_keyword_package_to_saved_combox)
-        choose_which_keyword_package_to_saved_layout.addSpacing(150)
-
-        # 保存配置按钮
-        stack_keyword_saved_layout = QHBoxLayout()
-        self.stack_keyword_save_btn = QPushButton('保存配置')
-        self.stack_keyword_save_btn.clicked.connect(self.keyword_save_btn_handle)
-        self.stack_keyword_save_btn.setFont(QFont('Microsoft YaHei', 15))
-        self.stack_keyword_save_btn.setProperty('name', 'stack_keyword_save_btn')  # 设置按钮属性
-        stack_keyword_save_btn_qss = '''QPushButton[name='stack_keyword_save_btn']{background-color:rgb(0,255,255)}'''
-        self.stack_keyword_save_btn.setStyleSheet(stack_keyword_save_btn_qss)
-        self.stack_keyword_save_btn.setFixedHeight(60)
-        stack_keyword_saved_layout.addWidget(self.stack_keyword_save_btn)
-
-        # 下一步
-        stack_keyword_next_layout = QHBoxLayout()
-        self.stack_keyword_next_btn = QPushButton("下一步")
-        self.stack_keyword_next_btn.clicked.connect(self.stack_keyword_next_btn_handle)
-        self.stack_keyword_next_btn.setFont(QFont('Microsoft YaHei', 15))
-        self.stack_keyword_next_btn.setFixedHeight(60)
-        stack_keyword_next_layout.addWidget(self.stack_keyword_next_btn)
-
-        stack_keyword_w1 = QWidget()
-        stack_keyword_w2 = QWidget()
-        stack_keyword_w3 = QWidget()
-        stack_keyword_w4 = QWidget()
-        stack_keyword_w5 = QWidget()
-        stack_keyword_w6 = QWidget()
-        stack_keyword_w7 = QWidget()
-        stack_keyword_w8 = QWidget()
-
-        stack_keyword_w1.setLayout(if_old_keyword_package_layout)
-        stack_keyword_w2.setLayout(choose_keyword_package_layout)
-        stack_keyword_w3.setLayout(keyword_blank_list_layout)
-        stack_keyword_w4.setLayout(input_keyword_layout)
-        stack_keyword_w5.setLayout(if_add_to_keyword_package_layout)
-        stack_keyword_w6.setLayout(choose_which_keyword_package_to_saved_layout)
-        stack_keyword_w7.setLayout(stack_keyword_saved_layout)
-        stack_keyword_w8.setLayout(stack_keyword_next_layout)
-
-        stack_keyword_layout = QVBoxLayout()
-        stack_keyword_layout.addWidget(stack_keyword_w1)
-        stack_keyword_layout.addWidget(stack_keyword_w2)
-        stack_keyword_layout.addWidget(stack_keyword_w3)
-        stack_keyword_layout.addWidget(stack_keyword_w4)
-        stack_keyword_layout.addWidget(stack_keyword_w5)
-        stack_keyword_layout.addWidget(stack_keyword_w6)
-        stack_keyword_layout.addWidget(stack_keyword_w7)
-        stack_keyword_layout.addWidget(stack_keyword_w8)
-
-        self.stack_shenjin_manager.setLayout(stack_keyword_layout)
-
-    """
-    关键词配置槽函数
-    """
-    # 下一步按钮
-    def stack_keyword_next_btn_handle(self):
-        self.Stack.setCurrentIndex(2)
-
-    # 关键词库跳转
-    def click_keyword_lib_jump(self):
-        self.keyword_dialog.show()
-
-    # 选择关键词库
-    def choose_keyword_package_index(self, i):
-        self.choose_keyword_lib_index = (i + 1)
-
-    def choose_which_keyword_package_to_saved_index(self, i):
-        self.choose_which_keyword_lib_to_saved_index = (i + 1)
-
-    # 保存配置
-    def keyword_save_btn_handle(self):
-        if self.old_keyword_package_NO_choose.isChecked():  # 不启用关键词库
-            self.keyword_returned_tofind = ""
-            self.keyword_returned_tofind = str(self.input_keyword_edit.text())
-        else:
-            self.keyword_returned_tofind = ""
-            data = show_data("keyword" + str(self.choose_keyword_lib_index))
-            for keyword_pair in data:
-                self.keyword_returned_tofind += (keyword_pair[1] + " ")
-            print(self.keyword_returned_tofind)
-        if self.if_add_to_keyword_package_YES_choose.isChecked():  # 保存到关键词库
-            keyword = "keyword" + str(self.choose_which_keyword_lib_to_saved_index)
-            save_keyword_to_keyword_lib(str(self.input_keyword_edit.text()), keyword)
-
-    # 数据库发现页面
-    def stack_rizhi_delete_UI(self):
-        # 开始探测数据库服务器
-        start_find_db_add_layout = QHBoxLayout()
-        start_find_db_add_layout.setContentsMargins(5, 5, 5, 5)
-        self.start_find_db_add_btn = QPushButton("开始探测数据库服务器")
-        self.start_find_db_add_btn.setFixedHeight(60)
-        self.start_find_db_add_btn.setFixedWidth(1000)
-        self.start_find_db_add_btn.setFont(QFont('Microsoft YaHei', 15))
-        start_find_db_add_layout.addWidget(self.start_find_db_add_btn)
-
-        # 探测结果标题
-        search_result_title_layout = QHBoxLayout()
-        search_result_title_layout.setContentsMargins(5, 5, 5, 5)
-        search_result_title = QLabel("探测结果")
-        search_result_title.setFont(QFont('Microsoft YaHei', 10))
-        search_result_title_layout.addStretch(1)
-        search_result_title_layout.addWidget(search_result_title)
-        search_result_title_layout.addStretch(1)
-
-        # 探测结果表格
+        # 查询结果表格
         search_result_table_layout = QHBoxLayout()
         search_result_table_layout.setContentsMargins(5, 5, 5, 5)
+        search_result_table_layout.setContentsMargins(5, 5, 5, 5)
         self.search_result_table = QTableWidget()
-        self.search_result_table.setRowCount(100)  # 设置行数
+        # self.search_result_table.setRowCount(100)  # 设置行数
         self.search_result_table.setColumnCount(3)  # 设置列数
-        self.search_result_table.setHorizontalHeaderLabels(["IP端口", "数据库类型", "是否加入检查"])  # 设置表头
-        self.search_result_table.setColumnWidth(0, 100)  # 设置列宽
+        self.search_result_table.setHorizontalHeaderLabels(["保密员", "执行操作", "时间"])  # 设置表头
+        self.search_result_table.setColumnWidth(0, 150)  # 设置列宽
         self.search_result_table.setColumnWidth(1, 400)
-        self.search_result_table.setColumnWidth(2, 400)
+        self.search_result_table.setColumnWidth(2, 362)
         self.search_result_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         search_result_table_layout.addWidget(self.search_result_table)
 
-        # 检查进度
-        search_schedule_display_layout = QHBoxLayout()
-        search_schedule_display_layout.setContentsMargins(5, 5, 5, 5)
-        search_schedule_display_label = QLabel("检查进度")
-        search_schedule_display_label.setFont(QFont('Microsoft YaHei', 15))
-        self.search_schedule_pbar = QProgressBar()
-        self.search_schedule_pbar.setValue(50)
-        self.search_schedule_pbar.setFixedHeight(30)
-        search_schedule_display_layout.addWidget(search_schedule_display_label)
-        search_schedule_display_layout.addWidget(self.search_schedule_pbar)
+        stack_shenjin_manager_w1 = QWidget()
+        stack_shenjin_manager_w2 = QWidget()
+        stack_shenjin_manager_w3 = QWidget()
+        stack_shenjin_manager_w4 = QWidget()
+        stack_shenjin_manager_w5 = QWidget()
+        stack_shenjin_manager_w6 = QWidget()
 
-        # 终止检查按钮
-        db_end_search_btn_layout = QHBoxLayout()
-        db_end_search_btn_layout.setContentsMargins(5, 5, 5, 5)
-        self.db_end_search_btn = QPushButton("终止检查")
-        self.db_end_search_btn.setFont(QFont('Microsoft YaHei', 15))
-        self.db_end_search_btn.setProperty('name', 'db_end_search_btn')
-        db_end_search_btn_qss = '''QPushButton[name='db_end_search_btn']{background-color:rgb(255,0,0)}'''
-        self.db_end_search_btn.setStyleSheet(db_end_search_btn_qss)
-        self.db_end_search_btn.setFixedHeight(40)
-        db_end_search_btn_layout.addWidget(self.db_end_search_btn)
+        stack_shenjin_manager_w1.setLayout(search_method_layout)
+        stack_shenjin_manager_w2.setLayout(search_on_time_layout)
+        stack_shenjin_manager_w3.setLayout(rizhi_start_search_btn_layout)
+        stack_shenjin_manager_w4.setLayout(search_result_lable_layout)
+        stack_shenjin_manager_w5.setLayout(search_result_table_layout)
 
-        # 选择完成，开始检查按钮
-        db_choose_finished_layout = QHBoxLayout()
-        db_choose_finished_layout.setContentsMargins(5, 5, 5, 5)
-        self.db_choose_finished_btn = QPushButton("选择完成，开始进行检查")
-        # self.db_choose_finished_btn.clicked.connect(self.stack_db_search_db_choose_finished_btn_handle)
-        self.db_choose_finished_btn.setFont(QFont('Microsoft YaHei', 15))
-        self.db_choose_finished_btn.setFixedHeight(40)
-        db_choose_finished_layout.addWidget(self.db_choose_finished_btn)
+        stack_shenjin_manager_layout = QVBoxLayout()
+        stack_shenjin_manager_layout.addWidget(stack_shenjin_manager_w1)
+        stack_shenjin_manager_layout.addWidget(stack_shenjin_manager_w2)
+        stack_shenjin_manager_layout.addWidget(stack_shenjin_manager_w3)
+        stack_shenjin_manager_layout.addWidget(stack_shenjin_manager_w4)
+        stack_shenjin_manager_layout.addWidget(stack_shenjin_manager_w5)
 
-        stack_db_search_w1 = QWidget()
-        stack_db_search_w2 = QWidget()
-        stack_db_search_w3 = QWidget()
-        stack_db_search_w4 = QWidget()
-        stack_db_search_w5 = QWidget()
-        stack_db_search_w6 = QWidget()
+        self.stack_shenjin_manager.setLayout(stack_shenjin_manager_layout)
 
-        stack_db_search_w1.setLayout(start_find_db_add_layout)
-        stack_db_search_w2.setLayout(search_result_title_layout)
-        stack_db_search_w3.setLayout(search_result_table_layout)
-        stack_db_search_w4.setLayout(search_schedule_display_layout)
-        stack_db_search_w5.setLayout(db_end_search_btn_layout)
-        stack_db_search_w6.setLayout(db_choose_finished_layout)
+    """
+    审计管理槽函数
+    """
+    # 按照分类查询下标返回
+    def search_on_class_index(self, i):
+        self.search_on_class_index_return = i
 
-        stack_db_search_layout = QVBoxLayout()
-        stack_db_search_layout.setSpacing(0)
-        stack_db_search_layout.addWidget(stack_db_search_w1)
-        stack_db_search_layout.addWidget(stack_db_search_w2)
-        stack_db_search_layout.addWidget(stack_db_search_w3)
-        # stack_db_search_layout.addStretch(5)
-        stack_db_search_layout.addWidget(stack_db_search_w4)
-        stack_db_search_layout.addWidget(stack_db_search_w5)
-        stack_db_search_layout.addWidget(stack_db_search_w6)
-        self.stack_rizhi_delete.setLayout(stack_db_search_layout)
+    # 日历返回时间
+    def search_on_time_beg_btn_handle(self):
+        self.beg_cal.show()
+
+    def search_on_time_end_btn_handle(self):
+        self.end_cal.show()
+
+    def beg_cal_set(self):
+        self.beg_data = self.beg_cal.selectedDate()
+        data = self.beg_data.toString().split(" ")
+        year = data[-1]
+        month = data[-3][:-1]
+        day = data[-2]
+        self.beg_data_return = (year + "-" + month + "-" + day)
+
+    def end_cal_set(self):
+        self.end_data = self.end_cal.selectedDate()
+        data = self.end_data.toString().split(" ")
+        year = data[-1]
+        month = data[-3][:-1]
+        day = data[-2]
+        self.end_data_return = (year + "-" + month + "-" + day)
+
+    # 改变触发状态
+    def shijian_choose_handle(self):
+        self.search_on_time_beg_btn.setEnabled(True)
+        self.search_on_time_end_btn.setEnabled(True)
+
+    def quanbu_choose_handle(self):
+        self.search_on_time_beg_btn.setEnabled(False)
+        self.search_on_time_end_btn.setEnabled(False)
+
+
+    # 表格增加一行数据
+    def add_op_line(self, user, op, time):
+        row = self.search_result_table.rowCount()
+        self.search_result_table.setRowCount(row + 1)
+        self.search_result_table.setItem(row, 0, QTableWidgetItem(str(user)))
+        self.search_result_table.setItem(row, 1, QTableWidgetItem(str(op)))
+        self.search_result_table.setItem(row, 2, QTableWidgetItem(str(time)))
+
+    # 增加多行数据
+    def add_data_to_op_table(self):
+        # 清空数据表check记录
+        self.search_result_table.setRowCount(0)  # 清空数据
+        if self.quanbu_choose.isChecked():
+            datas = get_op_record_all()
+        else:
+            print(self.beg_data_return, self.end_data_return)
+            datas = get_op_record_time(self.beg_data_return, self.end_data_return)
+        for data in datas:
+            self.add_op_line(data[0], data[1], data[2])
+
+
+    # 日志清除
+    def stack_rizhi_delete_UI(self):
+        # 选择清除时间
+        delete_time_choose_layout = QHBoxLayout()
+        delete_time_choose_label = QLabel("时间选择")
+        delete_time_choose_label.setFont(QFont('Microsoft YaHei', 15))
+        self.three_month_choose = QRadioButton("3个月前")
+        self.three_month_choose.setChecked(True)  # 设置默认清除3个月之前的
+        self.three_month_choose.setFont(QFont('Microsoft YaHei', 15))
+        self.six_month_choose = QRadioButton("6个月前")
+        self.six_month_choose.setFont(QFont('Microsoft YaHei', 15))
+        self.one_year_choose = QRadioButton("1年前")
+        self.one_year_choose.setFont(QFont('Microsoft YaHei', 15))
+        delete_time_choose_layout.addSpacing(80)
+        delete_time_choose_layout.addWidget(delete_time_choose_label)
+        delete_time_choose_layout.addSpacing(100)
+        delete_time_choose_layout.addWidget(self.three_month_choose)
+        delete_time_choose_layout.addWidget(self.six_month_choose)
+        delete_time_choose_layout.addWidget(self.one_year_choose)
+        delete_time_choose_layout.addSpacing(150)
+
+        # 开始清除按钮
+        start_delete_btn_layout = QHBoxLayout()
+        self.start_delete_btn = QPushButton('开始清除')
+        self.start_delete_btn.clicked.connect(self.start_delete_btn_handle)
+        self.start_delete_btn.setFont(QFont('Microsoft YaHei', 15))
+        self.start_delete_btn.setFixedHeight(50)
+        start_delete_btn_layout.addWidget(self.start_delete_btn)
+
+        # 进度条
+        delete_pbar_layout = QHBoxLayout()
+        delete_pbar_label = QLabel("删除进度")
+        delete_pbar_label.setFont(QFont('Microsoft YaHei', 15))
+        self.delete_pbar = QProgressBar()
+        self.delete_pbar.setValue(0)
+        self.delete_pbar.setFixedHeight(30)
+        delete_pbar_layout.addWidget(delete_pbar_label)
+        delete_pbar_layout.addWidget(self.delete_pbar)
+
+        stack_rizhi_delete_w1 = QWidget()
+        stack_rizhi_delete_w2 = QWidget()
+        stack_rizhi_delete_w3 = QWidget()
+
+        stack_rizhi_delete_w1.setLayout(delete_time_choose_layout)
+        stack_rizhi_delete_w2.setLayout(start_delete_btn_layout)
+        stack_rizhi_delete_w3.setLayout(delete_pbar_layout)
+
+        stack_rizhi_delete_layout = QVBoxLayout()
+        stack_rizhi_delete_layout.addStretch(1)
+        stack_rizhi_delete_layout.addWidget(stack_rizhi_delete_w1)
+        stack_rizhi_delete_layout.addWidget(stack_rizhi_delete_w2)
+        stack_rizhi_delete_layout.addWidget(stack_rizhi_delete_w3)
+        stack_rizhi_delete_layout.addStretch(1)
+        self.stack_rizhi_delete.setLayout(stack_rizhi_delete_layout)
+
+    # 开始清除处理
+    def start_delete_btn_handle(self):
+        if self.three_month_choose.isChecked():
+            remove_n_month_data(3)
+            self.delete_pbar.setValue(100)
+            return
+        if self.six_month_choose.isChecked():
+            remove_n_month_data(6)
+            self.delete_pbar.setValue(100)
+            return
+        if self.one_year_choose.isChecked():
+            remove_n_month_data(12)
+            self.delete_pbar.setValue(100)
+            return
+
 
     '''
     信号跳转函数
