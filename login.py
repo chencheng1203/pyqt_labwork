@@ -13,7 +13,7 @@ from PyQt5.QtSql import QSqlDatabase, QSqlQuery, QSqlQueryModel  # 数据库
 from MainWindow import MainWin
 from Checker_Window import Checker_Win
 from login_state_dialog import sucess_login, failed_login_not_input, failed_login_passwd_error
-from utils import insert_user, search_all_user_account, search_user
+from utils import insert_user, search_all_user_account, search_user, insert_op_record
 
 
 class LoginWin(QDialog):
@@ -31,19 +31,19 @@ class LoginWin(QDialog):
 
     def initUI(self):
         self.setWindowTitle('登录')   # 设置窗口名称
-        self.setWindowIcon(QIcon(r"./images/软件图标.ico"))
+        self.setWindowIcon(QIcon(r"D:\Code\PyQt\bupt_prj01\images\软件图标.ico"))
         self.resize(1200, 800)
         self.center()
         self.setFixedSize(self.width(), self.height())
 
         win_palette = QPalette()  # 设置窗口样式
-        win_palette.setBrush(QPalette.Background, QBrush(QPixmap('./images/bg_4.jpg')))
+        win_palette.setBrush(QPalette.Background, QBrush(QPixmap(r'D:\Code\PyQt\bupt_prj01\images\bg_4.jpg')))
         self.setPalette(win_palette)
 
         # 标题
         title_layout = QHBoxLayout()
         icon_title = QLabel(self)
-        icon_title.setPixmap(QPixmap('./images/数据库维护服务.png'))
+        icon_title.setPixmap(QPixmap(r'D:\Code\PyQt\bupt_prj01\images/数据库维护服务.png'))
         title_label = QLabel("数据库检查系统", self)
         title_label.setFont(QFont('Ink Free', 25))
         title_layout.addStretch(4)
@@ -158,6 +158,8 @@ class LoginWin(QDialog):
             if state[1] == 1:
                 self.sucess_login_message.show()
                 self.mainWin.show()
+                self.mainWin.set_current_user(user_name)
+                insert_op_record(user_name, "用户登录")
                 self.close()
             elif self.user_name_edit.text() == '' or self.passwd_edit.text() == '':
                 QApplication.setQuitOnLastWindowClosed(False)
