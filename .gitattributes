@@ -1,2 +1,2 @@
-*.h linguist-language=python
-*.w linguist-language=python
+*.py linguist-language=python
+*.css linguist-language=python
